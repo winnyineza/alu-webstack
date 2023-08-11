@@ -1,4 +1,6 @@
 global
+        maxconn 2048
+        tune.ssl.default-dh-param 2048
         log /dev/log    local0
         log /dev/log    local1 notice
         chroot /var/lib/haproxy
@@ -20,6 +22,8 @@ global
 defaults
         log     global
         mode    http
+        option forwardfor
+        option http-server-close
         option  httplog
         option  dontlognull
         timeout connect 5000
@@ -32,20 +36,19 @@ defaults
         errorfile 502 /etc/haproxy/errors/502.http
         errorfile 503 /etc/haproxy/errors/503.http
         errorfile 504 /etc/haproxy/errors/504.http
+        stats enable
+        stats uri /stats
+        stats realm Haproxy\ Statistics
+        stats auth ssam:random
 
-frontend  ollyjhay-frontend
-        bind *:80
-        mode http
-        bind *:443 ssl crt /etc/haproxy/certs/www.ollyjhay.tech.pem
-        redirect scheme https if !{ ssl_fc }
-        default_backend ollyjhay-backend
-backend ollyjhay-backend
-        balance roundrobin
-        server 5767-web-01 52.91.60.40:80 check
-        server 5767-web-02 54.198.208.63:80 check
+frontend ourfrontend
+        bind *:443 ssl crt /etc/ssl/private/ssunday.tech.pem
+        http-request add-header X-Forwarded-Proto http
+        http-request redirect scheme https if !{ ssl_fc }
+        default_backend ourendpoint
 
-listen http-in
-        bind :80
-        balance roundrobin
+backend ourendpoint
+        http-request add-header X-Forwarded-Proto https if { ssl_fc }
+        http-request redirect scheme https if !{ ssl_fc }
         server 5767-web-01 52.91.60.40:80 check
         server 5767-web-02 54.198.208.63:80 check
